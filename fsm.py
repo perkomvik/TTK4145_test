@@ -4,8 +4,6 @@ from order_fulfillment import *
 from network import *
 from order_assignment import *
 import subprocess
-#sys.path.insert(0, '/home/student/Desktop/TTK4145')
-#import order_assignment.order_assignment.py
 import argparse as ap
 import getpass as gp
 
@@ -23,6 +21,7 @@ STATE_ASSIGN = 7
 
 class State_machine:
     def __init__(self, local_orders_queue, worldview_queue):
+        self.id = None
         self.config_init()
         self.state = STATE_NONE
         self.worldview = worldview = {}
@@ -30,7 +29,6 @@ class State_machine:
     	self.worldview['elevators'] = {}
         self.peers = None
         self.lost_peers = None
-        self.id = network_local_ip()
         self.elevator = None
         self.alone = False
         self.local_orders_queue = local_orders_queue
@@ -39,12 +37,11 @@ class State_machine:
         return self.worldview['elevators'][self.id]['hardware_failure']
 
     def redundancy_check(self):
-        #print("hei")
         if len(self.peers) < 2:
-            for f in range (0, N_FLOORS):
-                    for b in range (0, N_BUTTONS-1):
-                        self.worldview['elevators'][self.id]['requests'][f][b] = 0
-                        self.worldview['hall_orders'][f][b] =[0,0]
+            for floor in range (0, N_FLOORS):
+                    for button in range (0, N_BUTTONS-1):
+                        self.worldview['elevators'][self.id]['requests'][floor][button] = 0
+                        self.worldview['hall_orders'][floor][button] =[0,0]
 
     def set_elevator(self, elevator):
         self.elevator = elevator
@@ -66,13 +63,25 @@ class State_machine:
         self.local_orders_queue.put(local_orders)
 
     def pass_worldview(self):
-        if (self.worldview_queue.empty()):
+        worldview_with_id = {}
+        worldview_with_id[self.id] = self.worldview
+        print(11)
+        #self.worldview_queue.join()
+        #if (self.worldview_queue.empty()):
             #worldview_queue.join()
-            self.worldview_queue.put(self.worldview)
+            #print(12)
+        self.worldview_queue.put(worldview_with_id)
+        print(12)
             #worldview_queue.task_done()
-        else:
-            self.worldview_queue.get() ##Removing essential information?
-            self.worldview_queue.put(self.worldview)
+        #else:
+            #try:
+                #print(14)
+                #self.worldview_queue.get(True, 3) ##Removing essential information?
+                #print(15)
+                #self.worldview_queue.put(worldview_with_id)
+                #print(16)
+            #except:
+                #print("Woops")
 
     def delete_lost_peers(self): ##FIX this
     	for id in self.worldview['elevators']:
@@ -85,7 +94,7 @@ class State_machine:
 
     def assign_orders(self):
         #if len(self.peers) >= 2:
-        assigner_thingy = Assigner(self.worldview, self.id, self.peers) #local requests goes from 0 to 1 after assigner
+        assigner_object = Assigner(self.worldview, self.id, self.peers) #local requests goes from 0 to 1 after assigner
         self.worldview = assigner_thingy.should_i_take_order()
 
 
@@ -97,12 +106,12 @@ class State_machine:
         self.worldview['elevators'][id_foreign] = worldview_foreign['elevators'][id_foreign]
     	hall_orders = self.worldview['hall_orders']
     	hall_orders_foreign = worldview_foreign['hall_orders']
-    	for f in range (0, N_FLOORS):
-    		for b in range (0, N_BUTTONS-1):
-    				#if hall_orders[f][b][0] != hall_orders_foreign[f][b][0]:
-    			if hall_orders[f][b][1] < hall_orders_foreign[f][b][1]:
-    				hall_orders[f][b][0] = hall_orders_foreign[f][b][0]
-    				hall_orders[f][b][1] = hall_orders_foreign[f][b][1]
+    	for floor in range (0, N_FLOORS):
+    		for button in range (0, N_BUTTONS-1):
+    				#if hall_orders[floor][button][0] != hall_orders_foreign[floor][button][0]:
+    			if hall_orders[floor][button][1] < hall_orders_foreign[floor][button][1]:
+    				hall_orders[floor][button][0] = hall_orders_foreign[floor][button][0]
+    				hall_orders[floor][button][1] = hall_orders_foreign[floor][button][1]
     			else:
     				pass
 
@@ -114,35 +123,32 @@ class State_machine:
         if button_status == 0:
             self.worldview['elevators'][self.id]['requests'][floor][button] = 0
 
+    def get_id(self):
+        return self.id
 
     def config_init(self):
         parser = ap.ArgumentParser(description='Port for simulation')
     	parser.add_argument('-p', '--port', dest='sim_port', required=False, metavar='<port_number>')
-    	parser.add_argument('-f', '--alone', dest='alone', required=False, metavar='<if_elevator_alone')
+    	parser.add_argument('-i', '--id', dest='id', required=True, metavar='<elev_id')
     	args = parser.parse_args()
     	port_number = args.sim_port #Sender's email address
-    	alone = args.alone
+    	self.id = args.id
     	if port_number:
     		with open('C_interface/elevator_hardware.con', 'r') as file:
     			print(port_number)
     			data = file.readlines()
 
-    # now change the 2nd line, note that you have to add a newline
     		data[3] = "--com_port              " + port_number
 
-    		# and write everything back
     		with open('C_interface/elevator_hardware.con', 'w') as file:
     		    file.writelines(data)
-    		#subprocess.call(['cd', 'elevatorHW'])
-    		#subprocess.call(['./' , 'SimElevatorServer'])
+
     	else:
     		with open('C_interface/elevator_hardware.con', 'r') as file:
     			print(port_number)
     			data = file.readlines()
 
-    # now change the 2nd line, note that you have to add a newline
     		data[3] = "--com_port              " + '15657'
 
-    		# and write everything back
     		with open('C_interface/elevator_hardware.con', 'w') as file:
     		    file.writelines(data)

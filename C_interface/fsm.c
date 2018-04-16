@@ -14,13 +14,12 @@ static ElevOutputDevice     outputDevice;
 
 static void __attribute__((constructor)) fsm_init(){
     elevator = elevator_uninitialized();
-    elevator.config.doorOpenDuration_s = 3
 }
 
-static void setAllLights(Elevator es){
+static void setAllLights(Elevator elev){
     for(int floor = 0; floor < N_FLOORS; floor++){
-        for(int btn = 0; btn < N_BUTTONS; btn++){
-            elevator_hardware_set_button_lamp(btn, floor, es.requests[floor][btn]);
+        for(int button = 0; button < N_BUTTONS; button++){
+            elevator_hardware_set_button_lamp(button, floor, elev.requests[floor][button]);
         }
     }
 }
@@ -31,61 +30,43 @@ void fsm_onInitBetweenFloors(void){
     elevator.behaviour = EB_Moving;
 }
 
-void fsm_onRequestButtonPress(int btn_floor, Button btn_type){
-    //printf("spam\n");
+void fsm_onRequestButtonPress(int button_floor, Button button_type){
     switch(elevator.behaviour){
 
     case EB_DoorOpen:
-        if(elevator.floor == btn_floor){
-              //printf("1\n");
-            //if (requests_shouldStop(elevator)){
-              //fsm_clear_floor(btn_floor);
-              if (btn_type != 2){
-                elevator.requests[btn_floor][btn_type] = 1;
-                //elevator_hardware_set_door_open_lamp(1);
-              }
-              //printf("hei\n");
-              timer_start(elevator.config.doorOpenDuration_s);
-              //setAllLights(elevator);
-              //return 1;
-            //}
+        if(elevator.floor == button_floor){
+            if (button_type != 2){
+              elevator.requests[button_floor][button_type] = 1;
+            }
+            timer_start(elevator.config.doorOpenDuration_s);
 
-        } else {
-            //printf("5\n");
-            elevator.requests[btn_floor][btn_type] = 1;
-            if (elevator_hardware_get_floor_sensor_signal() == btn_floor){
-                //printf("6\n");
+        }
+        else {
+            elevator.requests[button_floor][button_type] = 1;
+            if (elevator_hardware_get_floor_sensor_signal() == button_floor){
                 timer_start(elevator.config.doorOpenDuration_s);
             }
         }
         break;
 
     case EB_Moving:
-        //printf("2\n");
-        //if (elevator_hardware_get_floor_sensor_signal() == btn_floor){
-            //fsm_onFloorArrival(btn_floor);
-        //}
-        elevator.requests[btn_floor][btn_type] = 1;
+        elevator.requests[button_floor][button_type] = 1;
         break;
 
     case EB_Idle:
-        if(elevator.floor == btn_floor){
-            //printf("3\n");
+        if(elevator.floor == button_floor){
             elevator_hardware_set_door_open_lamp(1);
             timer_start(elevator.config.doorOpenDuration_s);
             elevator.behaviour = EB_DoorOpen;
-            //elevator.requests[btn_floor][btn_type] = 1;
-        } else {
-            //printf("4\n");
-            elevator.requests[btn_floor][btn_type] = 1;
+        }
+        else {
+            elevator.requests[button_floor][button_type] = 1;
             elevator.dirn = requests_chooseDirection(elevator);
             elevator_hardware_set_motor_direction(elevator.dirn);
             elevator.behaviour = EB_Moving;
         }
         break;
-
     }
-
     setAllLights(elevator);
 }
 
@@ -95,7 +76,9 @@ void fsm_onRequestButtonPress(int btn_floor, Button btn_type){
 int fsm_onFloorArrival(int newFloor){
     elevator.floor = newFloor;
     elevator_hardware_set_floor_indicator(elevator.floor);
+
     switch(elevator.behaviour){
+
     case EB_Moving:
         if(requests_shouldStop(elevator)){
             elevator_hardware_set_motor_direction(D_Stop);
@@ -121,19 +104,20 @@ int fsm_onFloorArrival(int newFloor){
 
 void fsm_onDoorTimeout(void){
     switch(elevator.behaviour){
+
     case EB_DoorOpen:
         elevator.dirn = requests_chooseDirection(elevator);
-
         elevator_hardware_set_door_open_lamp(0);
         elevator_hardware_set_motor_direction(elevator.dirn);
-
         if(elevator.dirn == D_Stop){
             elevator.behaviour = EB_Idle;
-        } else {
+        }
+        else {
             elevator.behaviour = EB_Moving;
         }
 
         break;
+
     default:
         break;
     }
@@ -152,17 +136,17 @@ int fsm_get_e_behaviour(void){
     return elevator.behaviour;
 }
 
-int fsm_get_e_request(int floor, int btn){
-    return elevator.requests[floor][btn];
+int fsm_get_e_request(int floor, int button){
+    return elevator.requests[floor][button];
 }
 
-int fsm_set_e_request(int value, int floor, int btn){
-    elevator.requests[floor][btn] = value;
+int fsm_set_e_request(int value, int floor, int button){
+    elevator.requests[floor][button] = value;
 }
 
 void fsm_clear_floor(int floor){
-    for(Button btn = 0; btn < N_BUTTONS-1; btn++){
-         elevator.requests[floor][btn] = 0;
+    for(Button button = 0; button < N_BUTTONS-1; button++){
+         elevator.requests[floor][button] = 0;
     }
     setAllLights(elevator);
 }

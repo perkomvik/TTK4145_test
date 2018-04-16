@@ -14,10 +14,13 @@ static pthread_mutex_t sockmtx;
 void elevator_hardware_init() {
     char ip[16] = {0};
     char port[8] = {0};
-    ip = "localhost"
-    port = "15657"
+    con_load("C_interface/elevator_hardware.con",
+	     con_val("com_ip",   ip,   "%s")
+	     con_val("com_port", port, "%s")
+        )
+
     pthread_mutex_init(&sockmtx, NULL);
-    
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     assert(sockfd != -1 && "Unable to set up socket");
 

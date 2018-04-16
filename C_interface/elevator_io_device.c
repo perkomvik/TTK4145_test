@@ -22,22 +22,17 @@ static void elev_simulation_write_doorLight(int value);
 static void elev_simulation_write_stopButtonLight(int value);
 static void elev_simulation_write_motorDirection(Dirn dirn);
 
-typedef enum {
-    ET_Comedi,
-    ET_Simulation
-} ElevatorType;
 
-static ElevatorType et = ET_Simulation;
 static int sockfd;
 
 static void __attribute__((constructor)) elev_init(void){
     int resetSimulator = 0;
-
     char ip[16] = {0};
     char port[8] = {0};
-    ip = "localhost"
-    port = "15657"
-
+    con_load("simulator.con",
+        con_val("com_ip",   ip,   "%s")
+        con_val("com_port", port, "%s")
+    )
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     assert(sockfd != -1 && "Unable to set up socket");
 
@@ -50,14 +45,13 @@ static void __attribute__((constructor)) elev_init(void){
     getaddrinfo(ip, port, &hints, &res);
 
     int fail = connect(sockfd, res->ai_addr, res->ai_addrlen);
-    //assert(fail == 0 && "Unable to connect to simulator server");
+    assert(fail == 0 && "Unable to connect to simulator server");
 
     freeaddrinfo(res);
 
     if(resetSimulator){
         send(sockfd, (char[4]){0}, 4, 0);
     }
-
 
     ElevOutputDevice eo = elevio_getOutputDevice();
 
@@ -66,7 +60,6 @@ static void __attribute__((constructor)) elev_init(void){
             eo.requestButtonLight(floor, btn, 0);
         }
     }
-
     eo.stopButtonLight(0);
     eo.doorLight(0);
     eo.floorIndicator(0);
@@ -75,20 +68,24 @@ static void __attribute__((constructor)) elev_init(void){
 
 ElevInputDevice elevio_getInputDevice(void){
     return (ElevInputDevice){
-        .floorSensor    = &elev_simulation_read_floorSensor,
-        .requestButton  = &elev_simulation_read_requestButton,
-        .stopButton     = &elev_simulation_read_stopButton,
-        .obstruction    = &elev_simulation_read_obstruction
-      };
+            .floorSensor    = &elev_simulation_read_floorSensor,
+            .requestButton  = &elev_simulation_read_requestButton,
+            .stopButton     = &elev_simulation_read_stopButton,
+            .obstruction    = &elev_simulation_read_obstruction
+        };
+}
+
 
 ElevOutputDevice elevio_getOutputDevice(void){
-    return (ElevOutputDevice){
-        .floorIndicator     = &elev_simulation_write_floorIndicator,
-        .requestButtonLight = &elev_simulation_write_requestButtonLight,
-        .doorLight          = &elev_simulation_write_doorLight,
-        .stopButtonLight    = &elev_simulation_write_stopButtonLight,
-        .motorDirection     = &elev_simulation_write_motorDirection
-    };
+        return (ElevOutputDevice){
+            .floorIndicator     = &elev_simulation_write_floorIndicator,
+            .requestButtonLight = &elev_simulation_write_requestButtonLight,
+            .doorLight          = &elev_simulation_write_doorLight,
+            .stopButtonLight    = &elev_simulation_write_stopButtonLight,
+            .motorDirection     = &elev_simulation_write_motorDirection
+        };
+}
+
 
 char* elevio_dirn_toString(Dirn d){
     return
